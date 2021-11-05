@@ -5,6 +5,10 @@ import 'firebase/auth'
 import { useRouter } from 'next/router'
 import Axios from 'axios'
 import Cookies from 'js-cookie'
+import { mapUserData } from '../firebase/mapUserData'
+import { setUserCookie } from '../firebase/userCookies'
+import moment from 'moment'
+import * as gtag from '../lib/gtag'
 
 initFirebase()
 
@@ -15,17 +19,31 @@ const SignIn = () => {
         password : ''
     })
     const firebaseAuth = firebase.auth()
+    
     const handleSumbitLogin = () => {
         firebaseAuth.signInWithEmailAndPassword(inputValue.email, inputValue.password)
         .then(({user}) => {
             if(user.emailVerified){
-                return user.getIdToken().then((idToken) => {
-                    Axios.post('http://localhost:8000/api/v1/auth/createSession', { tokenId :idToken })
-                    .then((result) => {
-                        Cookies.set('auth', result.data.cookie || '', {expires : result.data.options.maxAge})
-                    })
-                    router.push('/')
+                const userData = {
+                    uid : user.uid,
+                    email: user.email, 
+                  }
+                setUserCookie(JSON.stringify(userData))
+                router.push('/')
+                gtag.event({
+                    action : 'submit_form',
+                    category: 'login with email',
+                    label : user.email
                 })
+                
+                // return user.getIdToken().then((idToken) => {
+                //     Axios.post('http://localhost:8000/api/v1/auth/createSession', { tokenId :idToken })
+                //     .then((result) => {
+                //         console.log(moment(new Date(Date.now() + (result.data.options.maxAge))).format())
+                //         Cookies.set('auth2', result.data.cookie || '', { expires : new Date(Date.now() + (result.data.options.maxAge)) })
+                //     })
+                // router.push('/')
+                // })
             }else{
                 alert('verifikasi email anda terlebih dahulu')
                 firebaseAuth.signOut()
@@ -34,20 +52,6 @@ const SignIn = () => {
         .catch((error) => {
             console.log(error);
         })
-        // try {
-        //     const result = await firebaseAuth.signInWithEmailAndPassword(inputValue.email, inputValue.password)
-        //     if (result.user.emailVerified) {
-        //         // const cookie = await Axios.post('http://localhost:8000/api/v1/auth/createSession', { tokenId:  JSON.stringify({tokenId}) })
-        //         console.log(tokenId)
-        //         router.push('/')
-        //     } else {
-        //         alert('verifikasi email anda terlebih dahulu')
-        //         firebaseAuth.signOut()
-        //     }
-            
-        // } catch (error) {
-        //     console.log(error)
-        // }
     }
 
     const handleLoginWithGoogle = async () => {
